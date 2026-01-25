@@ -1,193 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:padding="16dp">
 
     <LinearLayout
+        android:id="@+id/statusBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
-
-        <!-- Status Card -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="10dp"
+        android:background="#F0F0F0">
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            android:backgroundTint="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Device Status"
-                    android:textSize="14sp"
-                    android:textColor="#757575"
-                    android:layout_marginBottom="8dp"/>
-
-                <TextView
-                    android:id="@+id/tvStatus"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="ESP32 Status: Checking..."
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="#FF5252"
-                    android:drawableStart="@drawable/ic_status_indicator"
-                    android:drawablePadding="12dp"
-                    android:gravity="center_vertical"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Location Input Card -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            android:backgroundTint="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Location"
-                    android:textSize="14sp"
-                    android:textColor="#757575"
-                    android:layout_marginBottom="8dp"/>
-
-                <EditText
-                    android:id="@+id/etLocation"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:hint="Enter Location Name (e.g. Pool A)"
-                    android:textSize="16sp"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@drawable/bg_edittext"
-                    android:drawableStart="@drawable/ic_location"
-                    android:drawablePadding="12dp"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Control Buttons Card -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            android:backgroundTint="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Controls"
-                    android:textSize="14sp"
-                    android:textColor="#757575"
-                    android:layout_marginBottom="12dp"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="12dp">
-
-                    <Button
-                        android:id="@+id/btnStart"
-                        android:layout_width="0dp"
-                        android:layout_height="56dp"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:text="START"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:background="@drawable/bg_button_start"
-                        android:drawableStart="@drawable/ic_play"
-                        android:drawablePadding="8dp"
-                        android:gravity="center"
-                        android:textColor="#FFFFFF"/>
-
-                    <Button
-                        android:id="@+id/btnStop"
-                        android:layout_width="0dp"
-                        android:layout_height="56dp"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:text="STOP"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:background="@drawable/bg_button_stop"
-                        android:drawableStart="@drawable/ic_stop"
-                        android:drawablePadding="8dp"
-                        android:gravity="center"
-                        android:textColor="#FFFFFF"/>
-                </LinearLayout>
-
-                <Button
-                    android:id="@+id/btnUpload"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="UPLOAD &amp; CLEAR ESP32 DATA"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:background="@drawable/bg_button_upload"
-                    android:drawableStart="@drawable/ic_upload"
-                    android:drawablePadding="8dp"
-                    android:gravity="center"
-                    android:textColor="#FFFFFF"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Chart Card -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="400dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            android:backgroundTint="#FFFFFF">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Data Visualization"
-                    android:textSize="14sp"
-                    android:textColor="#757575"
-                    android:layout_marginBottom="12dp"/>
-
-                <com.github.mikephil.charting.charts.ScatterChart
-                    android:id="@+id/scatterChart"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
+            android:text="ESP32 Status: "
+            android:textStyle="bold" />
+        <View
+            android:id="@+id/statusIndicator"
+            android:layout_width="15dp"
+            android:layout_height="15dp"
+            android:layout_marginStart="10dp"
+            android:background="@android:color/holo_red_dark" />
     </LinearLayout>
-</ScrollView>
+
+    <ListView
+        android:id="@+id/projectListView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/statusBar"
+        android:layout_marginTop="10dp" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAddProject"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="20dp"
+        android:src="@android:drawable/ic_input_add"
+        android:contentDescription="Create Project" />
+
+</RelativeLayout>
