@@ -3,91 +3,61 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="#F5F5F5">
+    android:padding="16dp">
 
     <TextView
         android:id="@+id/tvRiverName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="River Project Name"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textStyle="bold"
-        android:textColor="@android:color/black"
         android:gravity="center"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="10dp"/>
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="@android:color/white"
-        android:padding="8dp"
-        android:elevation="4dp">
-
+        android:layout_height="300dp">
         <View
             android:id="@+id/chartBackground"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:alpha="0.3"
-            android:background="@android:color/transparent" />
-
+            android:layout_height="match_parent" />
         <com.github.mikephil.charting.charts.LineChart
             android:id="@+id/riverChart"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
     </FrameLayout>
 
-    <LinearLayout
+    <Button
+        android:id="@+id/btnRecord"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="16dp"
-        android:weightSum="2">
+        android:text="START NEW LOCATION"
+        android:layout_marginTop="10dp"
+        android:backgroundTint="#4CAF50"/>
 
-        <Button
-            android:id="@+id/btnRecord"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Start New Location"
-            android:backgroundTint="#4CAF50"
-            android:textColor="@android:color/white"
-            android:layout_marginEnd="8dp"/>
+    <Button
+        android:id="@+id/btnGeminiAI"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="RUN ML PREDICTION"
+        android:backgroundTint="#2196F3"/>
 
-        <Button
-            android:id="@+id/btnGeminiAI"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Ask Gemini AI"
-            android:backgroundTint="#673AB7"
-            android:textColor="@android:color/white"
-            android:layout_marginStart="8dp"/>
-    </LinearLayout>
+    <Button
+        android:id="@+id/btnShowMap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="OPEN IN GOOGLE MAPS"
+        android:backgroundTint="#FF5722"
+        android:visibility="gone"
+        android:layout_marginTop="5dp"/>
 
     <TextView
+        android:id="@+id/tvAiResult"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="AI Analysis Result:"
-        android:textStyle="bold"
-        android:layout_marginTop="16dp"/>
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:layout_marginTop="8dp"
-        android:background="@android:color/white"
-        android:padding="8dp"
-        android:elevation="2dp">
-
-        <TextView
-            android:id="@+id/tvAiResult"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Click 'Ask Gemini AI' to analyze water safety..."
-            android:textSize="14sp"
-            android:textColor="#333333"/>
-    </ScrollView>
+        android:layout_marginTop="15dp"
+        android:text="Results will appear here..."
+        android:padding="10dp"
+        android:background="#EEEEEE"/>
 
 </LinearLayout>

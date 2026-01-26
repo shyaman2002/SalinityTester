@@ -1,46 +1,62 @@
 package com.example.salinitytester;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
-import android.view.LayoutInflater;
+import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.Button;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.components.MarkerView;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.highlight.Highlight;
-import com.github.mikephil.charting.utils.MPPointF;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.firebase.database.*;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class RiverAnalysisActivity extends AppCompatActivity {
 
     private LineChart riverChart;
     private TextView tvRiverName, tvAiResult;
     private View chartBackground;
+    private Button btnShowMap;
     private DatabaseReference mDb;
     private String riverName, currentLocationName;
     private FusedLocationProviderClient fusedLocationClient;
     private boolean isRecording = false;
     private ValueEventListener stagingListener;
+
+    // YOUR NEW ML SERVER URL
+    private static final String ML_SERVER_URL = "https://adulatory-cordie-nonmonistic.ngrok-free.dev/predict_bridge";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,8 +67,7 @@ public class RiverAnalysisActivity extends AppCompatActivity {
         tvRiverName = findViewById(R.id.tvRiverName);
         tvAiResult = findViewById(R.id.tvAiResult);
         chartBackground = findViewById(R.id.chartBackground);
-
-        // IMPORTANT: Replace with your actual Gemini API Key in the GeminiApiClient class
+        btnShowMap = findViewById(R.id.btnShowMap);
 
         mDb = FirebaseDatabase.getInstance().getReference();
         riverName = getIntent().getStringExtra("RIVER_NAME");
@@ -61,42 +76,35 @@ public class RiverAnalysisActivity extends AppCompatActivity {
         if (riverName != null) {
             tvRiverName.setText(riverName);
             setupButtons();
-            loadProjectData(); // This loads the graph
+            loadProjectData();
         }
     }
 
     private void setupButtons() {
         Button btnRecord = findViewById(R.id.btnRecord);
-        Button btnAnalyze = findViewById(R.id.btnGeminiAI);
+        Button btnPredict = findViewById(R.id.btnGeminiAI); // Using existing ID for ML Button
 
+        btnPredict.setText("RUN ML PREDICTION");
         btnRecord.setOnClickListener(v -> {
-            if (!isRecording) {
-                showNewLocationDialog(btnRecord);
-            } else {
-                stopRecording(btnRecord);
-            }
+            if (!isRecording) showNewLocationDialog(btnRecord);
+            else stopRecording(btnRecord);
         });
 
-        btnAnalyze.setOnClickListener(v -> performAiAnalysis());
+        btnPredict.setOnClickListener(v -> performMlPrediction());
     }
 
-    // --- 1. Location & Recording Logic ---
+    // --- 1. RECORDING LOGIC ---
 
     private void showNewLocationDialog(Button btnRecord) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("New Location");
         final EditText input = new EditText(this);
-        input.setHint("Location Name (e.g., Bridge A)");
+        input.setHint("Location Name");
         builder.setView(input);
-
-        builder.setPositiveButton("Start Recording", (dialog, which) -> {
-            String locName = input.getText().toString().trim();
-            if (!locName.isEmpty()) {
-                currentLocationName = locName;
-                startRecording(btnRecord);
-            }
+        builder.setPositiveButton("Start", (d, w) -> {
+            currentLocationName = input.getText().toString().trim();
+            if (!currentLocationName.isEmpty()) startRecording(btnRecord);
         });
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
         builder.show();
     }
 
@@ -105,30 +113,18 @@ public class RiverAnalysisActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 101);
             return;
         }
-
         fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
             if (location != null) {
-                // 1. Create the Location Node with GPS
                 DatabaseReference locRef = mDb.child("projects").child(riverName).child(currentLocationName);
-                locRef.child("lat").setValue(location.getLatitude());
-                locRef.child("lng").setValue(location.getLongitude());
+                locRef.child("latitude").setValue(location.getLatitude());
+                locRef.child("longitude").setValue(location.getLongitude());
+                mDb.child("projects").child(riverName).get().addOnSuccessListener(snap -> locRef.child("order").setValue(snap.getChildrenCount()));
 
-                // Set Order ID based on existing count
-                mDb.child("projects").child(riverName).get().addOnSuccessListener(snap -> {
-                    long count = snap.getChildrenCount();
-                    locRef.child("order").setValue(count);
-                });
-
-                // 2. Tell ESP32 to START
                 mDb.child("control/status").setValue("START");
-
-                // 3. Attach Listener to Staging to copy data
                 isRecording = true;
                 btnRecord.setText("STOP RECORDING");
                 btnRecord.setBackgroundColor(Color.RED);
-
                 attachStagingListener(locRef.child("measurements"));
-                Toast.makeText(this, "Recording started...", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -136,179 +132,134 @@ public class RiverAnalysisActivity extends AppCompatActivity {
     private void stopRecording(Button btnRecord) {
         isRecording = false;
         btnRecord.setText("START NEW LOCATION");
-        btnRecord.setBackgroundColor(Color.parseColor("#4CAF50")); // Green
-
+        btnRecord.setBackgroundColor(Color.parseColor("#4CAF50"));
         mDb.child("control/status").setValue("STOP");
-
-        if (stagingListener != null) {
-            mDb.child("device_staging").removeEventListener(stagingListener);
-        }
+        if (stagingListener != null) mDb.child("device_staging").removeEventListener(stagingListener);
     }
 
     private void attachStagingListener(DatabaseReference targetRef) {
         stagingListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists() && isRecording) {
-                    // Copy data from Staging to Permanent History
-                    targetRef.push().setValue(snapshot.getValue());
-                }
+                if (snapshot.exists() && isRecording) targetRef.push().setValue(snapshot.getValue());
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         };
-        // Listen for changes in staging (ESP32 updates this)
         mDb.child("device_staging").addValueEventListener(stagingListener);
     }
 
-    // --- 2. Charting Logic ---
+    // --- 2. SCATTER CHART LOGIC ---
 
-    // 1. SCATTER PLOT DATA LOADING
     private void loadProjectData() {
         mDb.child("projects").child(riverName).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 List<Entry> entries = new ArrayList<>();
-                float totalTds = 0;
-                int totalMeasurements = 0;
-
-                // Loop through each Location (e.g., "Bridge A", "Point B")
-                for (DataSnapshot locSnap : snapshot.getChildren()) {
-                    if (locSnap.hasChild("measurements")) {
-                        Integer order = locSnap.child("order").getValue(Integer.class);
-
-                        // Loop through EVERY measurement in this location
-                        for (DataSnapshot m : locSnap.child("measurements").getChildren()) {
-                            try {
-                                Double h = m.child("height").getValue(Double.class);
-                                Double tds = m.child("tds").getValue(Double.class);
-                                Double temp = m.child("temp").getValue(Double.class);
-
-                                if (h != null && tds != null && order != null) {
-                                    // Create a point for THIS specific reading
-                                    // X = Location Order, Y = Height
-                                    Entry entry = new Entry(order.floatValue(), h.floatValue());
-
-                                    // Pack specific data for this dot (for the Marker)
-                                    Map<String, Object> markerData = new HashMap<>();
-                                    markerData.put("tds", tds.floatValue());
-                                    markerData.put("temp", (temp != null) ? temp.floatValue() : 0f);
-                                    markerData.put("name", locSnap.getKey());
-                                    entry.setData(markerData);
-
-                                    entries.add(entry);
-
-                                    // Update totals for global background color
-                                    totalTds += tds;
-                                    totalMeasurements++;
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
+                float totalTds = 0; int count = 0;
+                for (DataSnapshot loc : snapshot.getChildren()) {
+                    if (loc.hasChild("measurements") && loc.hasChild("order")) {
+                        float order = loc.child("order").getValue(Integer.class).floatValue();
+                        for (DataSnapshot m : loc.child("measurements").getChildren()) {
+                            float h = m.child("height").getValue(Double.class).floatValue();
+                            float t = m.child("tds").getValue(Double.class).floatValue();
+                            Entry e = new Entry(order, h);
+                            Map<String, Object> d = new HashMap<>();
+                            d.put("tds", t); d.put("name", loc.getKey());
+                            e.setData(d);
+                            entries.add(e);
+                            totalTds += t; count++;
                         }
                     }
                 }
-
-                if (!entries.isEmpty()) {
-                    // Calculate global average for the background color
-                    float globalAvg = (totalMeasurements > 0) ? (totalTds / totalMeasurements) : 0;
-                    updateChart(entries, globalAvg);
-                }
+                if (!entries.isEmpty()) updateChart(entries, totalTds/count);
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
 
-    // 2. SCATTER CHART STYLING
-    private void updateChart(List<Entry> entries, float globalAvgTds) {
-        // Sort is required for LineChart even if we don't draw lines
+    private void updateChart(List<Entry> entries, float avgTds) {
         entries.sort((e1, e2) -> Float.compare(e1.getX(), e2.getX()));
-
-        LineDataSet set = new LineDataSet(entries, "Water Level Readings");
-
-        // DISABLE LINES to make it a Scatter Plot
-        set.setLineWidth(0f);                // Set line width to zero
-        set.setDrawValues(false);            // Keep it clean
-        set.setDrawCircles(true);            // Ensure dots are drawn
-        set.setColor(Color.TRANSPARENT); // No lines connecting points
-        set.setDrawValues(false); // Hide numbers on dots (too messy for scatter)
-
-        // Dynamic Dot Colors (Per measurement)
+        LineDataSet set = new LineDataSet(entries, "Water Depth");
+        set.setLineWidth(0f); set.setColor(Color.TRANSPARENT); set.setDrawCircles(true);
         List<Integer> colors = new ArrayList<>();
         for (Entry e : entries) {
-            Map<String, Object> data = (Map<String, Object>) e.getData();
-            float tds = (float) data.get("tds");
-
-            if (tds < 50) colors.add(Color.GREEN);
-            else if (tds <= 300) colors.add(Color.YELLOW);
-            else if (tds <= 700) colors.add(Color.parseColor("#FFA500")); // Orange
+            float t = (float)((Map)e.getData()).get("tds");
+            if (t < 50) colors.add(Color.GREEN);
+            else if (t < 300) colors.add(Color.YELLOW);
+            else if (t < 700) colors.add(Color.parseColor("#FFA500"));
             else colors.add(Color.RED);
         }
         set.setCircleColors(colors);
-        set.setCircleRadius(5f); // Slightly smaller dots for better visibility
-        set.setDrawCircleHole(false); // Solid dots
-
-        // Background Color (Global Safety Status)
-        int bgAlpha = 50; // Very faint transparency
-        if (globalAvgTds > 1000) chartBackground.setBackgroundColor(Color.argb(bgAlpha, 255, 0, 0));
-        else if (globalAvgTds > 300) chartBackground.setBackgroundColor(Color.argb(bgAlpha, 255, 165, 0));
-        else if (globalAvgTds > 50) chartBackground.setBackgroundColor(Color.argb(bgAlpha, 255, 255, 0));
-        else chartBackground.setBackgroundColor(Color.argb(bgAlpha, 0, 255, 0));
-
-        LineData data = new LineData(set);
-        riverChart.setData(data);
-        riverChart.getDescription().setEnabled(false);
-
-        // Set Custom Marker (Hover Effect)
-        CustomMarkerView mv = new CustomMarkerView(this, R.layout.marker_view);
-        mv.setChartView(riverChart); // Required for bounds control
-        riverChart.setMarker(mv);
-
+        set.setCircleRadius(5f);
+        riverChart.setData(new LineData(set));
         riverChart.invalidate();
+
+        int alpha = 50;
+        if (avgTds > 700) chartBackground.setBackgroundColor(Color.argb(alpha, 255, 0, 0));
+        else chartBackground.setBackgroundColor(Color.argb(alpha, 0, 255, 0));
     }
 
-    // 3. FIXED AI ANALYSIS (Prevents Empty Requests)
-    private void performAiAnalysis() {
-        tvAiResult.setText("Analyzing data...");
+    // --- 3. ML PREDICTION & MAPS ---
 
+    private void performMlPrediction() {
+        tvAiResult.setText("Analyzing on ML Server...");
         mDb.child("projects").child(riverName).get().addOnSuccessListener(snapshot -> {
-            StringBuilder sb = new StringBuilder();
-            int sampleCount = 0;
-
-            for (DataSnapshot ds : snapshot.getChildren()) {
-                if (ds.hasChild("measurements")) {
-                    sb.append("Location ").append(ds.getKey()).append(": ");
-
-                    // Only take the last 3 readings per location to save API tokens
-                    int limit = 0;
-                    for(DataSnapshot m : ds.child("measurements").getChildren()) {
-                        if(limit++ > 3) break;
-                        Object t = m.child("tds").getValue();
-                        Object h = m.child("height").getValue();
-                        if(t!=null && h!=null) {
-                            sb.append("[TDS:").append(t).append(", H:").append(h).append("] ");
-                        }
+            try {
+                JSONObject root = new JSONObject();
+                JSONArray locs = new JSONArray();
+                for (DataSnapshot locSnap : snapshot.getChildren()) {
+                    if (!locSnap.hasChild("measurements")) continue;
+                    JSONObject l = new JSONObject();
+                    l.put("order", locSnap.child("order").getValue());
+                    l.put("latitude", locSnap.child("latitude").getValue());
+                    l.put("longitude", locSnap.child("longitude").getValue());
+                    JSONArray ms = new JSONArray();
+                    for (DataSnapshot m : locSnap.child("measurements").getChildren()) {
+                        JSONObject mObj = new JSONObject();
+                        mObj.put("height", m.child("height").getValue());
+                        mObj.put("tds", m.child("tds").getValue());
+                        ms.put(mObj);
                     }
-                    sb.append("; ");
-                    sampleCount++;
+                    l.put("measurements", ms);
+                    locs.put(l);
+                }
+                root.put("locations", locs);
+                sendToServer(root.toString());
+            } catch (Exception e) { Log.e("ML", "JSON Error", e); }
+        });
+    }
+
+    private void sendToServer(String json) {
+        OkHttpClient client = new OkHttpClient();
+        RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
+        Request request = new Request.Builder().url(ML_SERVER_URL).post(body).build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                runOnUiThread(() -> tvAiResult.setText("Server Connection Failed"));
+            }
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (response.isSuccessful()) {
+                    try {
+                        JSONObject res = new JSONObject(response.body().string());
+                        double lat = res.getDouble("bridge_lat");
+                        double lng = res.getDouble("bridge_lng");
+                        String reason = res.getString("reasoning");
+                        runOnUiThread(() -> {
+                            tvAiResult.setText(reason);
+                            btnShowMap.setVisibility(View.VISIBLE);
+                            btnShowMap.setOnClickListener(v -> {
+                                Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + lat + "," + lng + "(Salinity Bridge Prediction)");
+                                Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+                                mapIntent.setPackage("com.google.android.apps.maps");
+                                startActivity(mapIntent);
+                            });
+                        });
+                    } catch (Exception e) { Log.e("ML", "Parse error", e); }
                 }
             }
-
-            if (sampleCount == 0) {
-                tvAiResult.setText("No data available to analyze.");
-                return;
-            }
-
-            // Send to Gemini
-            GeminiApiClient.analyzeData(riverName, sb.toString(), new GeminiApiClient.GeminiCallback() {
-                @Override
-                public void onSuccess(String result) {
-                    tvAiResult.setText(result);
-                }
-                @Override
-                public void onError(String error) {
-                    tvAiResult.setText("AI Error: " + error);
-                }
-            });
         });
     }
 }
