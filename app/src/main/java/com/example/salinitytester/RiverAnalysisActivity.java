@@ -244,9 +244,30 @@ public class RiverAnalysisActivity extends AppCompatActivity {
                 if (response.isSuccessful()) {
                     try {
                         JSONObject res = new JSONObject(response.body().string());
+                        String reason = res.getString("reasoning");
+
+                        if (res.isNull("bridge_lat") || res.isNull("bridge_lng")) {
+                            runOnUiThread(() -> {
+                                tvAiResult.setText(reason + "\n\n(No bridge location — salinity below threshold)");
+                                btnShowMap.setVisibility(View.GONE);
+                            });
+                            return;
+                        }
+
                         double lat = res.getDouble("bridge_lat");
                         double lng = res.getDouble("bridge_lng");
-                        String reason = res.getString("reasoning");
+
+                        runOnUiThread(() -> {
+                            tvAiResult.setText(reason);
+                            btnShowMap.setVisibility(View.VISIBLE);
+                            btnShowMap.setOnClickListener(v -> {
+                                Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + lat + "," + lng + "(Salinity Bridge Prediction)");
+                                Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+                                mapIntent.setPackage("com.google.android.apps.maps");
+                                startActivity(mapIntent);
+                            });
+                        });
+
                         runOnUiThread(() -> {
                             tvAiResult.setText(reason);
                             btnShowMap.setVisibility(View.VISIBLE);
